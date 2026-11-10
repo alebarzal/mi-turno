@@ -1,0 +1,75 @@
+{
+  "expo": {
+    "name": "Mi Turno",
+    "slug": "mi-turno",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.miturno.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#5B5BD6",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.miturno.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-secure-store",
+      "expo-font",
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Mi Turno usa la cámara para fotografiar la cartelera de turnos.",
+          "photosPermission": "Mi Turno accede a tus fotos para que elijas la imagen de la cartelera.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#5B5BD6"
+        }
+      ],
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Calendario",
+              "label": "Calendario de turnos",
+              "description": "Tu mes de turnos, con un color por tipo de turno.",
+              "minWidth": "250dp",
+              "minHeight": "250dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 4,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
+    ],
+    "scheme": "miturno",
+    "extra": {
+      "shareRelayUrl": "https://mi-turno-compartir.alebarzal.workers.dev"
+    }
+  }
+}

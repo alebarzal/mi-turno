@@ -1,0 +1,9 @@
+name = "mi-turno-compartir"
+main = "worker.mjs"
+compatibility_date = "2026-01-01"
+
+# Crea el espacio con:  npx wrangler kv namespace create SHARES
+# y pega aquí el id que te devuelva.
+[[kv_namespaces]]
+binding = "SHARES"
+id = "644314f078b54ee7be4343375ecf71de"
