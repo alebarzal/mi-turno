@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { actions, snapshot, useStore } from '../../data/store';
 import type { EnginePref, ThemePref } from '../../domain/types';
@@ -199,6 +199,20 @@ export default function SettingsScreen() {
           />
         </Card>
       </Section>
+
+      {Platform.OS === 'android' ? (
+        <Section title="Botón atrás">
+          <Card style={{ paddingVertical: 2 }}>
+            <SwitchRow
+              title="Preguntar antes de salir"
+              detail="Al pulsar atrás en el calendario"
+              value={s.confirmExit}
+              onChange={(confirmExit) => actions.updateSettings({ confirmExit })}
+              last
+            />
+          </Card>
+        </Section>
+      ) : null}
 
       <Section title="Tus datos">
         <Card style={{ paddingVertical: 2 }}>

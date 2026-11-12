@@ -16,6 +16,8 @@ export default function TabsLayout() {
     ({ focused }: { focused: boolean }) => <Feather name={name} size={21} color={focused ? t.accent : t.faint} />;
   return (
     <Tabs
+      // Atrás desde otra pestaña vuelve al Calendario en lugar de cerrar la app.
+      backBehavior="firstRoute"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: t.accent,

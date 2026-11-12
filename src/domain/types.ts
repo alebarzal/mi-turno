@@ -97,6 +97,8 @@ export interface Settings {
   newBoardDay: number;
   /** Dirección del servicio de intercambio (compartir con código). Vacío = el de la app. */
   relayUrl: string;
+  /** Android: al pulsar atrás en la pantalla principal, preguntar antes de salir. */
+  confirmExit: boolean;
   /** Enlace de sincronización continua con otros teléfonos; null si no se ha compartido nada. */
   sync: import('./sync').SyncLink | null;
 }
@@ -115,5 +117,6 @@ export const DEFAULT_SETTINGS: Settings = {
   notifyNewBoard: false,
   newBoardDay: 25,
   relayUrl: '',
+  confirmExit: true,
   sync: null,
 };

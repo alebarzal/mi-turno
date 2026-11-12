@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
-import { LayoutAnimation, Platform, Text, UIManager, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { BackHandler, LayoutAnimation, Platform, Text, UIManager, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { actions, useStore } from '../../data/store';
@@ -19,6 +19,7 @@ import {
   ymd,
 } from '../../domain/time';
 import { DayDetail } from '../../ui/DayDetail';
+import { ExitDialog } from '../../ui/ExitDialog';
 import { Button, Card, Chip, Empty, FadeIn, IconButton, Screen, Segmented, Sheet, T, Tap, confirmAsync } from '../../ui/kit';
 import { ShiftEditor } from '../../ui/ShiftEditor';
 import { DayRow, MonthGrid, SegmentList, Stat } from '../../ui/shifts';
@@ -51,6 +52,28 @@ export default function CalendarScreen() {
   const [cursor, setCursor] = useState(today);
   const [sheetDate, setSheetDate] = useState<string | null>(null);
   const [editDate, setEditDate] = useState<string | null>(null);
+  const [askExit, setAskExit] = useState(false);
+  const confirmExit = useStore((s) => s.settings.confirmExit);
+
+  // Botón/gesto atrás de Android en la pantalla principal: primero vuelve a la vista del mes
+  // actual; después pregunta antes de salir (salvo que se haya pedido no preguntar).
+  // Los menús (hojas) son Modal y se cierran solos con atrás antes de llegar aquí.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return;
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (mode !== 'month' || cursor !== today) {
+          setMode('month');
+          setCursor(today);
+          return true;
+        }
+        if (!confirmExit) return false;
+        setAskExit(true);
+        return true;
+      });
+      return () => sub.remove();
+    }, [mode, cursor, today, confirmExit]),
+  );
 
   const hasData = Object.keys(shifts).length > 0;
   const next = useMemo(() => nextSegment(shifts, now), [shifts, now]);
@@ -240,7 +263,16 @@ export default function CalendarScreen() {
             </Card>
           </FadeIn>
         ) : null}
-      </Screen>
+        <ExitDialog
+        visible={askExit}
+        onCancel={() => setAskExit(false)}
+        onExit={async (dontAsk) => {
+          setAskExit(false);
+          if (dontAsk) await actions.updateSettings({ confirmExit: false });
+          BackHandler.exitApp();
+        }}
+      />
+    </Screen>
 
       {/* Botón principal */}
       {hasData ? (
