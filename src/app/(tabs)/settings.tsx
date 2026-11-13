@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 
 import { actions, snapshot, useStore } from '../../data/store';
 import type { EnginePref, ThemePref } from '../../domain/types';
@@ -8,6 +8,7 @@ import { engineStatuses, type EngineStatus } from '../../recognition';
 import { exportBackup, pickBackup } from '../../services/backup';
 import { requestNotificationPermission } from '../../services/notifications';
 import { getApiKey, setApiKey } from '../../services/secrets';
+import { currentLabel, fetchLatest, installUpdate, isNewer } from '../../services/updates';
 import { Banner, Button, Card, Field, Row, Screen, Section, Segmented, SwitchRow, T, confirmAsync, notify } from '../../ui/kit';
 import { space, useTheme } from '../../ui/theme';
 
@@ -47,6 +48,39 @@ export default function SettingsScreen() {
   };
 
   const local = engines.find((e) => e.id === 'local');
+
+  const [updating, setUpdating] = useState<'' | 'checking' | 'downloading'>('');
+  const [updateInfo, setUpdateInfo] = useState(currentLabel());
+  const checkUpdate = async () => {
+    if (updating) return;
+    setUpdating('checking');
+    try {
+      const u = await fetchLatest();
+      if (!u) {
+        setUpdateInfo('Todavía no hay ninguna versión publicada');
+        return;
+      }
+      if (!isNewer(u)) {
+        setUpdateInfo(`${currentLabel()} · ya es la última`);
+        return;
+      }
+      const day = u.date ? new Date(u.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' }) : '';
+      const mb = u.size ? ` (${Math.round(u.size / 1e6)} MB)` : '';
+      setUpdateInfo(`Hay una versión nueva: 1.0.${u.build}`);
+      const ok = await confirmAsync(
+        'Nueva versión',
+        `${u.title}${day ? `\n\nPublicada el ${day}.` : ''}\n\nSe descargará${mb} y Android te pedirá confirmar la instalación. Tus turnos y ajustes se mantienen.`,
+        'Actualizar',
+      );
+      if (!ok) return;
+      setUpdating('downloading');
+      await installUpdate(u);
+    } catch (e) {
+      notify('No se ha podido actualizar', e instanceof Error ? e.message : undefined);
+    } finally {
+      setUpdating('');
+    }
+  };
 
   return (
     <Screen title="Ajustes">
@@ -211,6 +245,24 @@ export default function SettingsScreen() {
               last
             />
           </Card>
+        </Section>
+      ) : null}
+
+      {Platform.OS === 'android' ? (
+        <Section title="Actualizaciones">
+          <Card style={{ paddingVertical: 2 }}>
+            <Row
+              title={updating === 'downloading' ? 'Descargando…' : updating === 'checking' ? 'Buscando…' : 'Buscar actualizaciones'}
+              detail={updateInfo}
+              icon="refresh-cw"
+              right={updating ? <ActivityIndicator color={t.accent} /> : undefined}
+              onPress={checkUpdate}
+              last
+            />
+          </Card>
+          <T v="caption" style={{ marginTop: space.md, marginHorizontal: 4 }}>
+            Descarga la última versión publicada en GitHub. La primera vez Android te pedirá permitir instalar apps desde Mi Turno.
+          </T>
         </Section>
       ) : null}
 

@@ -24,6 +24,13 @@ npx eas-cli@latest build --profile preview --platform ios       # requiere cuent
 
 En Expo Go funciona todo menos el OCR del teléfono (la lectura con IA sí).
 
+### Actualizaciones automáticas (Android)
+
+Cada push a `master` lanza la GitHub Action [`apk.yml`](.github/workflows/apk.yml), que compila el APK y lo publica
+como release `build-<n>`. En la app, **Ajustes → Actualizaciones → Buscar actualizaciones** descarga la última y abre
+el instalador. El APK se firma con la clave guardada en el secreto `ANDROID_KEYSTORE` (en base64), que debe ser la
+misma con la que se instaló la app para que Android acepte la actualización.
+
 ## Lectura de la cartelera
 
 | Motor | Dónde | Requisitos |

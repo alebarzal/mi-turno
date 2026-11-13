@@ -1,0 +1,69 @@
+# Compila el APK de Android en cada push a master y lo publica como release «build-<n>».
+# La app lo encuentra desde Ajustes → Actualizaciones.
+name: APK
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Número de versión
+        run: |
+          BUILD=$((100 + GITHUB_RUN_NUMBER))
+          echo "BUILD=$BUILD" >> "$GITHUB_ENV"
+          jq ".expo.android.versionCode = $BUILD | .expo.version = \"1.0.$BUILD\"" app.json > app.tmp && mv app.tmp app.json
+
+      - run: npx expo prebuild --platform android --no-install
+
+      - name: Clave de firma (la misma con la que se instaló la app)
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+        run: |
+          test -n "$ANDROID_KEYSTORE" || { echo "Falta el secreto ANDROID_KEYSTORE"; exit 1; }
+          echo "$ANDROID_KEYSTORE" | base64 -d > android/app/debug.keystore
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Compilar APK
+        working-directory: android
+        env:
+          NODE_ENV: production
+          EXPO_PUBLIC_BUILD_NUMBER: ${{ env.BUILD }}
+          EXPO_PUBLIC_BUILD_SHA: ${{ github.sha }}
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon --console=plain
+
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk MiTurno.apk
+          { git log -1 --pretty=%s; echo; echo "sha: $GITHUB_SHA"; } > notas.md
+          gh release create "build-$BUILD" MiTurno.apk --title "Mi Turno 1.0.$BUILD" --notes-file notas.md --target "$GITHUB_SHA" --latest

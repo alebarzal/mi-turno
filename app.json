@@ -21,7 +21,11 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.miturno.app"
+      "package": "com.miturno.app",
+      "permissions": [
+        "INTERNET",
+        "REQUEST_INSTALL_PACKAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -69,7 +73,8 @@
     ],
     "scheme": "miturno",
     "extra": {
-      "shareRelayUrl": "https://mi-turno-compartir.alebarzal.workers.dev"
+      "shareRelayUrl": "https://mi-turno-compartir.alebarzal.workers.dev",
+      "updatesRepo": "alebarzal/mi-turno"
     }
   }
 }
