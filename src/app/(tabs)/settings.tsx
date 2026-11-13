@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
 
@@ -8,6 +8,7 @@ import { engineStatuses, type EngineStatus } from '../../recognition';
 import { exportBackup, pickBackup } from '../../services/backup';
 import { requestNotificationPermission } from '../../services/notifications';
 import { getApiKey, setApiKey } from '../../services/secrets';
+import { dismissUpdate } from '../../services/updateCheck';
 import { currentLabel, fetchLatest, installUpdate, isNewer, progressFraction } from '../../services/updates';
 import { ProgressBar } from '../../ui/ProgressBar';
 import { Banner, Button, Card, Field, Row, Screen, Section, Segmented, SwitchRow, T, confirmAsync, notify } from '../../ui/kit';
@@ -63,6 +64,7 @@ export default function SettingsScreen() {
         return;
       }
       if (!isNewer(u)) {
+        dismissUpdate();
         setUpdateInfo(`${currentLabel()} · ya es la última`);
         return;
       }
@@ -75,6 +77,7 @@ export default function SettingsScreen() {
         'Actualizar',
       );
       if (!ok) return;
+      dismissUpdate();
       setUpdating('downloading');
       setDownload({ fraction: 0, written: 0, total: u.size });
       let shown = -1;
@@ -92,6 +95,15 @@ export default function SettingsScreen() {
       setTimeout(() => setDownload(null), 600);
     }
   };
+
+  // Desde el aviso de «versión nueva» del calendario se llega aquí con ?update=1.
+  const params = useLocalSearchParams<{ update?: string }>();
+  useEffect(() => {
+    if (params.update !== '1') return;
+    router.setParams({ update: undefined });
+    checkUpdate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.update]);
 
   return (
     <Screen title="Ajustes">

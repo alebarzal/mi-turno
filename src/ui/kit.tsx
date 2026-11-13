@@ -9,6 +9,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -141,6 +142,7 @@ export function Screen({
   children,
   scroll = true,
   footer,
+  onRefresh,
 }: {
   title?: string;
   subtitle?: string;
@@ -148,7 +150,20 @@ export function Screen({
   children: React.ReactNode;
   scroll?: boolean;
   footer?: React.ReactNode;
+  /** Si se pasa, tirar hacia abajo lo ejecuta y muestra la ruedita mientras dura. */
+  onRefresh?: () => Promise<unknown>;
 }) {
+  const [refreshing, setRefreshing] = React.useState(false);
+  const refresh = onRefresh
+    ? async () => {
+        setRefreshing(true);
+        try {
+          await onRefresh();
+        } finally {
+          setRefreshing(false);
+        }
+      }
+    : undefined;
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const header = title ? (
@@ -168,6 +183,11 @@ export function Screen({
           contentContainerStyle={[pad, { paddingBottom: 120 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            refresh ? (
+              <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={t.accent} colors={[t.accent]} progressBackgroundColor={t.elevated} />
+            ) : undefined
+          }
         >
           {header}
           {children}
@@ -457,12 +477,15 @@ export function Sheet({
   title,
   children,
   footer,
+  actions,
 }: {
   visible: boolean;
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  /** Botones extra en la cabecera, antes del de cerrar. */
+  actions?: React.ReactNode;
 }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -486,7 +509,8 @@ export function Sheet({
             <View style={{ width: 36, height: 5, borderRadius: 3, backgroundColor: t.border }} />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.sm }}>
-            <T v="heading" style={{ flex: 1 }}>{title ?? ''}</T>
+            <T v="heading" style={{ flex: 1 }} numberOfLines={1}>{title ?? ''}</T>
+            {actions}
             <Tap onPress={onClose} label="Cerrar" scaleTo={0.9} style={{ padding: 6 }}>
               <Feather name="x" size={22} color={t.sub} />
             </Tap>

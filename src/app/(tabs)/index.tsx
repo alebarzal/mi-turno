@@ -1,11 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { BackHandler, LayoutAnimation, Platform, Text, UIManager, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, BackHandler, LayoutAnimation, PanResponder, Platform, Text, UIManager, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { actions, useStore } from '../../data/store';
-import { isOffDay, monthSummary, nextSegment, weekDates, weekSummary } from '../../domain/stats';
+import { isOffDay, monthSummary, monthsWithData, nextSegment, weekDates, weekSummary } from '../../domain/stats';
+import { shareIcs, shareMonthText } from '../../services/exportMonth';
+import { dismissUpdate, useAvailableUpdate } from '../../services/updateCheck';
 import {
   addDays,
   addMonths,
@@ -20,7 +22,7 @@ import {
 } from '../../domain/time';
 import { DayDetail } from '../../ui/DayDetail';
 import { ExitDialog } from '../../ui/ExitDialog';
-import { Button, Card, Chip, Empty, FadeIn, IconButton, Screen, Segmented, Sheet, T, Tap, confirmAsync } from '../../ui/kit';
+import { Button, Card, Chip, Empty, FadeIn, IconButton, Row, Screen, Segmented, Sheet, T, Tap, confirmAsync, haptic, notify } from '../../ui/kit';
 import { ShiftEditor } from '../../ui/ShiftEditor';
 import { DayRow, MonthGrid, SegmentList, Stat } from '../../ui/shifts';
 import { radius, space, toneOf, useTheme } from '../../ui/theme';
@@ -53,7 +55,10 @@ export default function CalendarScreen() {
   const [sheetDate, setSheetDate] = useState<string | null>(null);
   const [editDate, setEditDate] = useState<string | null>(null);
   const [askExit, setAskExit] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const confirmExit = useStore((s) => s.settings.confirmExit);
+  const linked = useStore((s) => !!s.settings.sync || s.shared.some((c) => !!c.channel));
+  const update = useAvailableUpdate();
 
   // Botón/gesto atrás de Android en la pantalla principal: primero vuelve a la vista del mes
   // actual; después pregunta antes de salir (salvo que se haya pedido no preguntar).
@@ -91,6 +96,38 @@ export default function CalendarScreen() {
     if (mode === 'month') setCursor(`${addMonths(monthKey(cursor), dir)}-01`);
     else setCursor(addDays(cursor, mode === 'week' ? 7 * dir : dir));
   };
+  // Deslizar a izquierda/derecha sobre el calendario cambia de mes, semana o día.
+  const moveRef = useRef(move);
+  moveRef.current = move;
+  const swipeX = useRef(new Animated.Value(0)).current;
+  const pan = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 16 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6,
+        onPanResponderMove: (_, g) => swipeX.setValue(g.dx * 0.35),
+        onPanResponderRelease: (_, g) => {
+          const dir = g.dx < -60 || (g.dx < -30 && g.vx < -0.4) ? 1 : g.dx > 60 || (g.dx > 30 && g.vx > 0.4) ? -1 : 0;
+          if (dir) {
+            haptic();
+            moveRef.current(dir);
+            swipeX.setValue(-dir * 36); // lo nuevo entra desde el lado contrario
+          }
+          Animated.spring(swipeX, { toValue: 0, useNativeDriver: true, speed: 16, bounciness: 3 }).start();
+        },
+        onPanResponderTerminate: () => Animated.spring(swipeX, { toValue: 0, useNativeDriver: true }).start(),
+      }),
+    [swipeX],
+  );
+
+  const awayFromToday =
+    mode === 'month' ? monthKey(cursor) !== month : mode === 'week' ? startOfWeek(cursor) !== startOfWeek(today) : cursor !== today;
+  const shareMonth = monthKey(cursor);
+  const runShare = (fn: () => Promise<unknown>) => {
+    setShareOpen(false);
+    // Deja que la hoja se cierre antes de abrir el menú de compartir del sistema.
+    setTimeout(() => fn().catch((e) => notify('No se ha podido compartir', e instanceof Error ? e.message : undefined)), 350);
+  };
+
   const periodLabel =
     mode === 'month'
       ? monthLabel(monthKey(cursor))
@@ -109,8 +146,34 @@ export default function CalendarScreen() {
       <Screen
         title="Mi Turno"
         subtitle={longDate(today)}
-        right={<IconButton icon="plus" label="Añadir turno a mano" onPress={() => setEditDate(mode === 'month' ? today : cursor)} />}
+        onRefresh={linked ? () => actions.syncNow() : undefined}
+        right={
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {hasData ? <IconButton icon="share" label="Compartir o exportar el mes" onPress={() => setShareOpen(true)} /> : null}
+            <IconButton icon="plus" label="Añadir turno a mano" onPress={() => setEditDate(mode === 'month' ? today : cursor)} />
+          </View>
+        }
       >
+        {update ? (
+          <FadeIn>
+            <Card
+              onPress={() => router.navigate({ pathname: '/settings', params: { update: '1' } })}
+              style={{ marginBottom: space.md, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+            >
+              <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+                <Feather name="download" size={18} color={t.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <T v="label">Nueva versión disponible · 1.0.{update.build}</T>
+                <T v="caption" color={t.sub} numberOfLines={1}>{update.title || 'Toca para actualizar'}</T>
+              </View>
+              <Tap onPress={dismissUpdate} label="Ahora no" scaleTo={0.9} style={{ padding: 4 }}>
+                <Feather name="x" size={18} color={t.faint} />
+              </Tap>
+            </Card>
+          </FadeIn>
+        ) : null}
+
         {/* Próximo turno */}
         <FadeIn>
           {next ? (
@@ -191,15 +254,36 @@ export default function CalendarScreen() {
                 <Feather name="chevron-left" size={22} color={t.text} />
               </Tap>
               <Tap onPress={() => setCursor(today)} label="Ir a hoy" style={{ flex: 1, alignItems: 'center' }}>
-                <T v="heading" numberOfLines={1}>{periodLabel}</T>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%' }}>
+                  <T v="heading" numberOfLines={1} style={{ flexShrink: 1 }}>{periodLabel}</T>
+                  {awayFromToday ? (
+                    <View style={{ backgroundColor: t.accentSoft, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ color: t.accent, fontSize: 12, fontWeight: '700' }}>Hoy</Text>
+                    </View>
+                  ) : null}
+                </View>
               </Tap>
               <Tap onPress={() => move(1)} label="Siguiente" scaleTo={0.9} style={{ padding: 6 }}>
                 <Feather name="chevron-right" size={22} color={t.text} />
               </Tap>
             </View>
 
+            <Animated.View
+              {...pan.panHandlers}
+              style={{
+                transform: [{ translateX: swipeX }],
+                opacity: swipeX.interpolate({ inputRange: [-120, 0, 120], outputRange: [0.6, 1, 0.6], extrapolate: 'clamp' }),
+              }}
+            >
             {mode === 'month' ? (
-              <MonthGrid month={monthKey(cursor)} shifts={shifts} today={today} selected={sheetDate} onSelect={setSheetDate} />
+              <MonthGrid
+                month={monthKey(cursor)}
+                shifts={shifts}
+                today={today}
+                selected={sheetDate}
+                onSelect={setSheetDate}
+                onLongPress={setEditDate}
+              />
             ) : mode === 'week' ? (
               <View>
                 {weekDates(startOfWeek(cursor)).map((d, i) => (
@@ -214,7 +298,13 @@ export default function CalendarScreen() {
                 onAdd={() => setEditDate(cursor)}
               />
             )}
+            </Animated.View>
           </Card>
+          {mode === 'month' && hasData ? (
+            <T v="caption" color={t.faint} style={{ textAlign: 'center', marginTop: space.sm }}>
+              Desliza para cambiar de mes · mantén pulsado un día para editarlo
+            </T>
+          ) : null}
 
           {mode === 'month' ? <Legend /> : null}
         </FadeIn>
@@ -301,7 +391,23 @@ export default function CalendarScreen() {
         </View>
       ) : null}
 
-      <Sheet visible={!!sheetDate} onClose={() => setSheetDate(null)} title={sheetDate ? longDate(sheetDate) : ''}>
+      <Sheet
+        visible={!!sheetDate}
+        onClose={() => setSheetDate(null)}
+        title={sheetDate ? longDate(sheetDate) : ''}
+        actions={
+          sheetDate ? (
+            <View style={{ flexDirection: 'row', marginRight: 4 }}>
+              <Tap onPress={() => setSheetDate(addDays(sheetDate, -1))} label="Día anterior" scaleTo={0.9} style={{ padding: 6 }}>
+                <Feather name="chevron-left" size={22} color={t.text} />
+              </Tap>
+              <Tap onPress={() => setSheetDate(addDays(sheetDate, 1))} label="Día siguiente" scaleTo={0.9} style={{ padding: 6 }}>
+                <Feather name="chevron-right" size={22} color={t.text} />
+              </Tap>
+            </View>
+          ) : null
+        }
+      >
         {sheetDate ? (
           <DayDetail
             shift={shifts[sheetDate]}
@@ -310,6 +416,36 @@ export default function CalendarScreen() {
             onAdd={() => openEditor(sheetDate)}
           />
         ) : null}
+        <View style={{ height: insets.bottom }} />
+      </Sheet>
+
+      <Sheet visible={shareOpen} onClose={() => setShareOpen(false)} title={`Compartir ${monthLabel(shareMonth).toLowerCase()}`}>
+        <Card style={{ paddingVertical: 2 }}>
+          <Row
+            title="Enviar como texto"
+            detail={Platform.OS === 'web' ? 'Se copia al portapapeles' : 'Para WhatsApp, Telegram, correo…'}
+            icon="message-circle"
+            onPress={() =>
+              runShare(async () => {
+                if (!(await shareMonthText(shifts, shareMonth, today))) notify('Este mes no tiene turnos');
+                else if (Platform.OS === 'web') notify('Copiado', 'Pega el texto donde quieras.');
+              })
+            }
+          />
+          <Row
+            title="Añadir al calendario"
+            detail="Archivo .ics para Google Calendar, Outlook…"
+            icon="calendar"
+            onPress={() => runShare(() => shareIcs(shifts, [shareMonth]))}
+          />
+          <Row
+            title="Todos los turnos desde este mes"
+            detail="Un solo .ics con este mes y los siguientes"
+            icon="layers"
+            last
+            onPress={() => runShare(() => shareIcs(shifts, monthsWithData(shifts).filter((m) => m >= shareMonth)))}
+          />
+        </Card>
         <View style={{ height: insets.bottom }} />
       </Sheet>
 

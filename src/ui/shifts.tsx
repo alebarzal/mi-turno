@@ -16,6 +16,7 @@ export function MonthGrid({
   today,
   flagged,
   onSelect,
+  onLongPress,
 }: {
   month: string;
   shifts: Record<string, Shift | undefined>;
@@ -24,6 +25,8 @@ export function MonthGrid({
   /** Fechas que hay que destacar (p. ej. lecturas dudosas en la revisión). */
   flagged?: Set<string>;
   onSelect: (date: string) => void;
+  /** Mantener pulsado un día (p. ej. para editarlo directamente). */
+  onLongPress?: (date: string) => void;
 }) {
   const t = useTheme();
   const dates = monthDates(month);
@@ -59,6 +62,15 @@ export function MonthGrid({
                   haptic();
                   onSelect(date);
                 }}
+                onLongPress={
+                  onLongPress
+                    ? () => {
+                        haptic();
+                        onLongPress(date);
+                      }
+                    : undefined
+                }
+                delayLongPress={350}
                 style={{ flex: 1, height: 58, padding: 2 }}
               >
                 <View

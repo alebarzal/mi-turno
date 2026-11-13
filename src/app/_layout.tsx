@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, AppState, View } from 'react-native';
 
 import { actions, useStore } from '../data/store';
+import { checkForUpdateInBackground } from '../services/updateCheck';
 import { Button, T } from '../ui/kit';
 import { useTheme } from '../ui/theme';
 
@@ -19,11 +20,15 @@ export default function RootLayout() {
   useEffect(() => {
     if (!ready) return;
     actions.syncNow();
+    checkForUpdateInBackground();
     const timer = setInterval(() => {
       if (AppState.currentState === 'active') actions.syncNow();
     }, 15000);
     const sub = AppState.addEventListener('change', (s) => {
-      if (s === 'active') actions.syncNow();
+      if (s === 'active') {
+        actions.syncNow();
+        checkForUpdateInBackground();
+      }
     });
     return () => {
       clearInterval(timer);
