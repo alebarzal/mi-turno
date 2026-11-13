@@ -41,3 +41,13 @@ describe('actualizaciones', () => {
     expect(isNewer(u, { build: 110, sha: '' })).toBe(false);
   });
 });
+
+describe('progreso de la descarga', () => {
+  it('calcula la fracción, con el tamaño de la release si el servidor no lo da', async () => {
+    const { progressFraction } = await import('../updates');
+    expect(progressFraction({ written: 25, total: 100 })).toBe(0.25);
+    expect(progressFraction({ written: 50, total: -1 }, 200)).toBe(0.25);
+    expect(progressFraction({ written: 10, total: -1 })).toBe(0);
+    expect(progressFraction({ written: 120, total: 100 })).toBe(1);
+  });
+});

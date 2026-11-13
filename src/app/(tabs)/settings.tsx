@@ -8,7 +8,8 @@ import { engineStatuses, type EngineStatus } from '../../recognition';
 import { exportBackup, pickBackup } from '../../services/backup';
 import { requestNotificationPermission } from '../../services/notifications';
 import { getApiKey, setApiKey } from '../../services/secrets';
-import { currentLabel, fetchLatest, installUpdate, isNewer } from '../../services/updates';
+import { currentLabel, fetchLatest, installUpdate, isNewer, progressFraction } from '../../services/updates';
+import { ProgressBar } from '../../ui/ProgressBar';
 import { Banner, Button, Card, Field, Row, Screen, Section, Segmented, SwitchRow, T, confirmAsync, notify } from '../../ui/kit';
 import { space, useTheme } from '../../ui/theme';
 
@@ -51,6 +52,7 @@ export default function SettingsScreen() {
 
   const [updating, setUpdating] = useState<'' | 'checking' | 'downloading'>('');
   const [updateInfo, setUpdateInfo] = useState(currentLabel());
+  const [download, setDownload] = useState<{ fraction: number; written: number; total: number } | null>(null);
   const checkUpdate = async () => {
     if (updating) return;
     setUpdating('checking');
@@ -74,11 +76,20 @@ export default function SettingsScreen() {
       );
       if (!ok) return;
       setUpdating('downloading');
-      await installUpdate(u);
+      setDownload({ fraction: 0, written: 0, total: u.size });
+      let shown = -1;
+      await installUpdate(u, (p) => {
+        const fraction = progressFraction(p, u.size);
+        const pct = Math.floor(fraction * 100);
+        if (pct === shown) return; // un repintado por cada 1 %
+        shown = pct;
+        setDownload({ fraction, written: Math.round(fraction * (u.size || p.total)), total: u.size || p.total });
+      });
     } catch (e) {
       notify('No se ha podido actualizar', e instanceof Error ? e.message : undefined);
     } finally {
       setUpdating('');
+      setTimeout(() => setDownload(null), 600);
     }
   };
 
@@ -255,10 +266,27 @@ export default function SettingsScreen() {
               title={updating === 'downloading' ? 'Descargando…' : updating === 'checking' ? 'Buscando…' : 'Buscar actualizaciones'}
               detail={updateInfo}
               icon="refresh-cw"
-              right={updating ? <ActivityIndicator color={t.accent} /> : undefined}
+              right={updating === 'checking' ? <ActivityIndicator color={t.accent} /> : undefined}
               onPress={checkUpdate}
-              last
+              last={!download}
             />
+            {download ? (
+              <View style={{ paddingHorizontal: space.md, paddingTop: space.xs, paddingBottom: space.md, gap: 8 }}>
+                <ProgressBar value={download.fraction} active={download.fraction < 1} />
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <T v="caption">
+                    {download.fraction >= 1
+                      ? 'Abriendo el instalador…'
+                      : download.total
+                        ? `${(download.written / 1e6).toFixed(1)} de ${(download.total / 1e6).toFixed(1)} MB`
+                        : 'Descargando…'}
+                  </T>
+                  <T v="label" color={t.accent} style={{ fontVariant: ['tabular-nums'] }}>
+                    {Math.floor(download.fraction * 100)} %
+                  </T>
+                </View>
+              </View>
+            ) : null}
           </Card>
           <T v="caption" style={{ marginTop: space.md, marginHorizontal: 4 }}>
             Descarga la última versión publicada en GitHub. La primera vez Android te pedirá permitir instalar apps desde Mi Turno.

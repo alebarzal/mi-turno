@@ -63,14 +63,28 @@ export async function fetchLatest(): Promise<Update | null> {
   return u;
 }
 
-/** Descarga el APK y abre el instalador del sistema (solo Android). */
-export async function installUpdate(u: Update): Promise<void> {
+export type Progress = { written: number; total: number };
+
+/** Fracción descargada (0–1); si el servidor no dice el tamaño, usa el de la release. */
+export function progressFraction(p: Progress, fallbackTotal = 0): number {
+  const total = p.total > 0 ? p.total : fallbackTotal;
+  return total > 0 ? Math.min(1, p.written / total) : 0;
+}
+
+/** Descarga el APK avisando del progreso y abre el instalador del sistema (solo Android). */
+export async function installUpdate(u: Update, onProgress?: (p: Progress) => void): Promise<void> {
   const target = new File(Paths.cache, 'MiTurno-actualizacion.apk');
-  const file = await File.downloadFileAsync(u.apkUrl, target, { idempotent: true });
-  const { getContentUriAsync } = await import('expo-file-system/legacy');
+  if (target.exists) target.delete();
+  const { createDownloadResumable, getContentUriAsync } = await import('expo-file-system/legacy');
+  const task = createDownloadResumable(u.apkUrl, target.uri, {}, (d) =>
+    onProgress?.({ written: d.totalBytesWritten, total: d.totalBytesExpectedToWrite }),
+  );
+  const res = await task.downloadAsync();
+  if (!res || res.status < 200 || res.status >= 300) throw new Error(`La descarga falló${res ? ` (${res.status})` : ''}.`);
+  onProgress?.({ written: 1, total: 1 });
   const IntentLauncher = await import('expo-intent-launcher');
   await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-    data: await getContentUriAsync(file.uri),
+    data: await getContentUriAsync(res.uri),
     type: 'application/vnd.android.package-archive',
     flags: 1 | 0x10000000, // FLAG_GRANT_READ_URI_PERMISSION | FLAG_ACTIVITY_NEW_TASK
   });
