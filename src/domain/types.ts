@@ -101,6 +101,8 @@ export interface Settings {
   confirmExit: boolean;
   /** Enlace de sincronización continua con otros teléfonos; null si no se ha compartido nada. */
   sync: import('./sync').SyncLink | null;
+  /** Última entrada del registro de novedades que el usuario ya ha visto. */
+  seenChangelog: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -119,4 +121,5 @@ export const DEFAULT_SETTINGS: Settings = {
   relayUrl: '',
   confirmExit: true,
   sync: null,
+  seenChangelog: '',
 };

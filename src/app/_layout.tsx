@@ -1,10 +1,12 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, AppState, View } from 'react-native';
 
-import { actions, useStore } from '../data/store';
+import { actions, getState, useStore } from '../data/store';
+import { latestChangelog, shouldShowChangelog } from '../domain/changelog';
 import { checkForUpdateInBackground } from '../services/updateCheck';
+import { WhatsNew } from '../ui/WhatsNew';
 import { Button, T } from '../ui/kit';
 import { useTheme } from '../ui/theme';
 
@@ -12,6 +14,20 @@ export default function RootLayout() {
   const t = useTheme();
   const ready = useStore((s) => s.ready);
   const error = useStore((s) => s.error);
+  const [showNews, setShowNews] = useState(false);
+
+  // Novedades: se enseñan una vez, la primera vez que se abre la app tras actualizar.
+  useEffect(() => {
+    if (!ready) return;
+    const { settings, shifts } = getState();
+    const latest = latestChangelog().id;
+    if (shouldShowChangelog(settings.seenChangelog, Object.keys(shifts).length > 0)) setShowNews(true);
+    else if (settings.seenChangelog !== latest) actions.updateSettings({ seenChangelog: latest });
+  }, [ready]);
+  const closeNews = () => {
+    setShowNews(false);
+    actions.updateSettings({ seenChangelog: latestChangelog().id });
+  };
 
   useEffect(() => {
     actions.init();
@@ -63,6 +79,7 @@ export default function RootLayout() {
         <Stack.Screen name="board/[id]" />
         <Stack.Screen name="codes" />
       </Stack>
+      <WhatsNew visible={showNews} onClose={closeNews} />
     </>
   );
 }

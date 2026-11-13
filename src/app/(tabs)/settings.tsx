@@ -11,6 +11,8 @@ import { getApiKey, setApiKey } from '../../services/secrets';
 import { dismissUpdate } from '../../services/updateCheck';
 import { currentLabel, fetchLatest, installUpdate, isNewer, progressFraction } from '../../services/updates';
 import { ProgressBar } from '../../ui/ProgressBar';
+import { WhatsNew } from '../../ui/WhatsNew';
+import { latestChangelog } from '../../domain/changelog';
 import { Banner, Button, Card, Field, Row, Screen, Section, Segmented, SwitchRow, T, confirmAsync, notify } from '../../ui/kit';
 import { space, useTheme } from '../../ui/theme';
 
@@ -53,6 +55,7 @@ export default function SettingsScreen() {
 
   const [updating, setUpdating] = useState<'' | 'checking' | 'downloading'>('');
   const [updateInfo, setUpdateInfo] = useState(currentLabel());
+  const [newsOpen, setNewsOpen] = useState(false);
   const [download, setDownload] = useState<{ fraction: number; written: number; total: number } | null>(null);
   const checkUpdate = async () => {
     if (updating) return;
@@ -305,6 +308,19 @@ export default function SettingsScreen() {
           </T>
         </Section>
       ) : null}
+
+      <Section title="Acerca de">
+        <Card style={{ paddingVertical: 2 }}>
+          <Row
+            title="Novedades"
+            detail={latestChangelog().summary}
+            icon="gift"
+            onPress={() => setNewsOpen(true)}
+            last
+          />
+        </Card>
+      </Section>
+      <WhatsNew visible={newsOpen} onClose={() => setNewsOpen(false)} />
 
       <Section title="Tus datos">
         <Card style={{ paddingVertical: 2 }}>
