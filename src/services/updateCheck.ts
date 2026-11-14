@@ -11,6 +11,19 @@ let lastCheck = 0;
 const listeners = new Set<() => void>();
 
 export async function checkForUpdateInBackground(): Promise<void> {
+  // Solo para probar el aviso en la web de desarrollo: http://localhost:8081/?demoUpdate
+  if (__DEV__ && Platform.OS === 'web' && globalThis.location?.search.includes('demoUpdate')) {
+    available = {
+      build: 999,
+      sha: '',
+      title: 'Versión de prueba del aviso de actualización',
+      date: new Date().toISOString(),
+      apkUrl: '',
+      size: 51_000_000,
+    };
+    listeners.forEach((l) => l());
+    return;
+  }
   if (Platform.OS !== 'android' || Date.now() - lastCheck < EVERY_MS) return;
   lastCheck = Date.now();
   try {

@@ -156,17 +156,21 @@ export default function CalendarScreen() {
       >
         {update ? (
           <FadeIn>
-            <Card
-              onPress={() => router.navigate({ pathname: '/settings', params: { update: '1' } })}
-              style={{ marginBottom: space.md, flexDirection: 'row', alignItems: 'center', gap: 12 }}
-            >
-              <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
-                <Feather name="download" size={18} color={t.accent} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <T v="label">Nueva versión disponible · 1.0.{update.build}</T>
-                <T v="caption" color={t.sub} numberOfLines={1}>{update.title || 'Toca para actualizar'}</T>
-              </View>
+            <Card style={{ marginBottom: space.md, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Tap
+                onPress={() => router.navigate({ pathname: '/settings', params: { update: '1' } })}
+                label="Actualizar"
+                scaleTo={0.98}
+                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+              >
+                <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.accentSoft, alignItems: 'center', justifyContent: 'center' }}>
+                  <Feather name="download" size={18} color={t.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <T v="label">Nueva versión disponible · 1.0.{update.build}</T>
+                  <T v="caption" color={t.sub} numberOfLines={1}>{update.title || 'Toca para actualizar'}</T>
+                </View>
+              </Tap>
               <Tap onPress={dismissUpdate} label="Ahora no" scaleTo={0.9} style={{ padding: 4 }}>
                 <Feather name="x" size={18} color={t.faint} />
               </Tap>

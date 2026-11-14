@@ -1,11 +1,12 @@
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, AppState, View } from 'react-native';
 
 import { actions, getState, useStore } from '../data/store';
 import { latestChangelog, shouldShowChangelog } from '../domain/changelog';
-import { checkForUpdateInBackground } from '../services/updateCheck';
+import { checkForUpdateInBackground, useAvailableUpdate } from '../services/updateCheck';
+import { UpdateDialog } from '../ui/UpdateDialog';
 import { WhatsNew } from '../ui/WhatsNew';
 import { Button, T } from '../ui/kit';
 import { useTheme } from '../ui/theme';
@@ -24,6 +25,12 @@ export default function RootLayout() {
     if (shouldShowChangelog(settings.seenChangelog, Object.keys(shifts).length > 0)) setShowNews(true);
     else if (settings.seenChangelog !== latest) actions.updateSettings({ seenChangelog: latest });
   }, [ready]);
+  // Aviso de versión nueva al entrar (una vez por versión y por sesión; el calendario
+  // mantiene además una tarjeta discreta hasta que se actualice o se descarte).
+  const update = useAvailableUpdate();
+  const [promptedBuild, setPromptedBuild] = useState(0);
+  const promptUpdate = update && update.build !== promptedBuild && !showNews ? update : null;
+
   const closeNews = () => {
     setShowNews(false);
     actions.updateSettings({ seenChangelog: latestChangelog().id });
@@ -80,6 +87,14 @@ export default function RootLayout() {
         <Stack.Screen name="codes" />
       </Stack>
       <WhatsNew visible={showNews} onClose={closeNews} />
+      <UpdateDialog
+        update={promptUpdate}
+        onLater={() => setPromptedBuild(promptUpdate?.build ?? 0)}
+        onUpdate={() => {
+          setPromptedBuild(promptUpdate?.build ?? 0);
+          router.navigate({ pathname: '/settings', params: { update: 'go' } });
+        }}
+      />
     </>
   );
 }

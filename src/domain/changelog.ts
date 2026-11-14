@@ -24,6 +24,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: '2026-11-14-aviso',
+    version: '1.0.106',
+    date: '2026-11-14',
+    summary: 'Aviso al abrir la app cuando hay una versión nueva.',
+    items: [
+      {
+        icon: 'bell',
+        title: 'Aviso de actualización',
+        text: 'Al abrir la app te avisamos si hay una versión nueva. Con «Actualizar» se descarga e instala directamente.',
+      },
+    ],
+  },
+  {
     id: '2026-11-14-novedades',
     version: '1.0.105',
     date: '2026-11-14',

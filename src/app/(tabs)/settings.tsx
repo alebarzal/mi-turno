@@ -57,7 +57,8 @@ export default function SettingsScreen() {
   const [updateInfo, setUpdateInfo] = useState(currentLabel());
   const [newsOpen, setNewsOpen] = useState(false);
   const [download, setDownload] = useState<{ fraction: number; written: number; total: number } | null>(null);
-  const checkUpdate = async () => {
+  /** Con `confirmed` (desde el aviso al abrir la app) no vuelve a preguntar. */
+  const checkUpdate = async (confirmed = false) => {
     if (updating) return;
     setUpdating('checking');
     try {
@@ -74,7 +75,7 @@ export default function SettingsScreen() {
       const day = u.date ? new Date(u.date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' }) : '';
       const mb = u.size ? ` (${Math.round(u.size / 1e6)} MB)` : '';
       setUpdateInfo(`Hay una versión nueva: 1.0.${u.build}`);
-      const ok = await confirmAsync(
+      const ok = confirmed || await confirmAsync(
         'Nueva versión',
         `${u.title}${day ? `\n\nPublicada el ${day}.` : ''}\n\nSe descargará${mb} y Android te pedirá confirmar la instalación. Tus turnos y ajustes se mantienen.`,
         'Actualizar',
@@ -102,9 +103,9 @@ export default function SettingsScreen() {
   // Desde el aviso de «versión nueva» del calendario se llega aquí con ?update=1.
   const params = useLocalSearchParams<{ update?: string }>();
   useEffect(() => {
-    if (params.update !== '1') return;
+    if (params.update !== '1' && params.update !== 'go') return;
     router.setParams({ update: undefined });
-    checkUpdate();
+    checkUpdate(params.update === 'go');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.update]);
 
@@ -282,7 +283,7 @@ export default function SettingsScreen() {
               detail={updateInfo}
               icon="refresh-cw"
               right={updating === 'checking' ? <ActivityIndicator color={t.accent} /> : undefined}
-              onPress={checkUpdate}
+              onPress={() => checkUpdate()}
               last={!download}
             />
             {download ? (
